@@ -1,0 +1,293 @@
+{% extends 'Chat/base.html' %}
+
+{% block title %}SafeTalk — Chat room{% endblock %}
+
+{% block extra_css %}
+<style>
+  main { min-height: 0; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 24px 0; }
+
+  .chat {
+    display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 190px); min-height: 520px; overflow: hidden;
+    border-radius: 26px; background: rgba(20,22,60,.55); border: 1px solid var(--line);
+    backdrop-filter: blur(18px) saturate(1.3);
+    box-shadow: 0 40px 90px rgba(0,0,0,.45), 0 0 80px rgba(160,108,242,.18);
+  }
+
+  /* ---------- Left: people ---------- */
+  .side { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; background: rgba(255,255,255,.03); }
+  .side-head { padding: 18px 16px 12px; }
+  .side-head h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 10px; }
+  .search { width: 100%; padding: 11px 16px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--glass); color: var(--ink); font-size: 14px; font-family: inherit; outline: none; transition: .25s; }
+  .search::placeholder { color: var(--muted); }
+  .search:focus { border-color: var(--c-violet); box-shadow: 0 0 0 4px rgba(160,108,242,.22); background: var(--glass-2); }
+  .people { flex: 1; overflow-y: auto; padding: 4px 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .people::-webkit-scrollbar, .feed::-webkit-scrollbar { width: 6px; }
+  .people::-webkit-scrollbar-thumb, .feed::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 6px; }
+  .room { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 14px; cursor: pointer; transition: .25s var(--ease); border: 1px solid transparent; }
+  .room:hover { background: var(--glass-2); transform: translateX(3px); }
+  .room.active { background: linear-gradient(120deg, rgba(109,107,245,.35), rgba(242,138,196,.25)); border-color: rgba(255,255,255,.18); }
+  .room:focus-visible { outline: 2px solid var(--c-violet); outline-offset: 2px; }
+  .av { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 15px; color: #1a1640; }
+  .av.a0 { background: linear-gradient(135deg, #a8b4ff, #e0a8ff); }
+  .av.a1 { background: linear-gradient(135deg, #ffd0a8, #ffa8c8); }
+  .av.a2 { background: linear-gradient(135deg, #a8f0e0, #a8d4ff); }
+  .av.a3 { background: linear-gradient(135deg, #fff0a8, #ffc8a8); }
+  .room .meta { min-width: 0; }
+  .room .meta b { display: block; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .room .meta span { display: block; font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .empty-list { padding: 24px 12px; text-align: center; color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+  /* ---------- Right: conversation ---------- */
+  .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .pane-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .pane-head .t b { display: block; font-size: 15px; }
+  .pane-head .t span { font-size: 12px; color: var(--muted); }
+  .back { display: none; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: var(--glass); color: var(--ink); cursor: pointer; place-items: center; }
+  .back svg { width: 18px; height: 18px; }
+
+  .feed { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth; }
+  .bubble { max-width: 72%; padding: 10px 15px; border-radius: 18px; font-size: 14.5px; line-height: 1.5; word-wrap: break-word; overflow-wrap: anywhere; animation: pop .35s var(--ease); white-space: pre-wrap; }
+  .bubble.them { align-self: flex-start; background: var(--glass-2); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+  .bubble.me { align-self: flex-end; color: #1a1640; font-weight: 500; background: linear-gradient(120deg, #b9b6ff, #f4b6da 60%, #ffd0b0); border-bottom-right-radius: 6px; box-shadow: 0 8px 22px rgba(160,108,242,.28); }
+  .bubble time { display: block; font-size: 10.5px; opacity: .6; margin-top: 3px; text-align: right; }
+  @keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+
+  .placeholder { margin: auto; text-align: center; color: var(--muted); max-width: 280px; line-height: 1.6; padding: 20px; }
+  .placeholder .ph-ic { width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 20px; display: grid; place-items: center; background: var(--grad); color: #1a1640; }
+  .placeholder .ph-ic svg { width: 30px; height: 30px; }
+  .placeholder h3 { color: var(--ink); font-size: 18px; margin-bottom: 6px; }
+
+  .composer { display: flex; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--line); }
+  .composer input[type=text] { flex: 1; min-width: 0; padding: 13px 18px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--glass); color: var(--ink); font-size: 14.5px; font-family: inherit; outline: none; transition: .25s; }
+  .composer input::placeholder { color: var(--muted); }
+  .composer input:focus { border-color: var(--c-violet); box-shadow: 0 0 0 4px rgba(160,108,242,.22); background: var(--glass-2); }
+  .composer input:disabled, .send:disabled { opacity: .5; cursor: not-allowed; }
+  .send { width: 48px; height: 48px; flex: none; border: none; border-radius: 50%; cursor: pointer; display: grid; place-items: center; color: #1a1640; background: var(--grad); background-size: 200% 200%; animation: shift 6s ease infinite; transition: .25s var(--ease); }
+  .send:hover:not(:disabled) { transform: scale(1.08) rotate(-8deg); box-shadow: 0 8px 22px rgba(242,138,196,.5); }
+  .send svg { width: 20px; height: 20px; }
+
+  /* ---------- Mobile: one panel at a time ---------- */
+  @media (max-width: 760px) {
+    .wrap { padding: 12px 10px 0; }
+    .chat { grid-template-columns: 1fr; height: calc(100vh - 150px); border-radius: 20px; }
+    .chat .pane { display: none; }
+    .chat.open .side { display: none; }
+    .chat.open .pane { display: flex; }
+    .back { display: grid; }
+    .bubble { max-width: 86%; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <div class="chat" id="chatApp"
+       data-users="{% url 'api_users' %}"
+       data-messages="{% url 'api_messages' 0 %}"
+       data-send="{% url 'api_send' %}">
+
+    <!-- LEFT: people list -->
+    <aside class="side">
+      <div class="side-head">
+        <h4>Chats</h4>
+        <input class="search" id="search" type="search" placeholder="Search people..." aria-label="Search people">
+      </div>
+      <div class="people" id="people"></div>
+    </aside>
+
+    <!-- RIGHT: conversation -->
+    <section class="pane">
+      <div class="pane-head" id="paneHead" hidden>
+        <button class="back" id="back" type="button" aria-label="Back to chats">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <div class="av a0" id="headAv"></div>
+        <div class="t"><b id="headName"></b><span>Private chat</span></div>
+      </div>
+
+      <div class="feed" id="feed">
+        <div class="placeholder" id="placeholder">
+          <div class="ph-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <h3>Pick a chat</h3>
+          <p>Choose someone from the list to see your messages.</p>
+        </div>
+      </div>
+
+      <form class="composer" id="composer" autocomplete="off">
+        {% csrf_token %}
+        <input id="msgInput" type="text" placeholder="Select a person to start..." maxlength="1000" disabled>
+        <button class="send" id="sendBtn" type="submit" aria-label="Send" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>
+        </button>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var app = document.getElementById('chatApp');
+  var peopleEl = document.getElementById('people');
+  var feed = document.getElementById('feed');
+  var form = document.getElementById('composer');
+  var input = document.getElementById('msgInput');
+  var sendBtn = document.getElementById('sendBtn');
+  var search = document.getElementById('search');
+  var paneHead = document.getElementById('paneHead');
+  var csrf = form.querySelector('[name="csrfmiddlewaretoken"]').value;
+
+  var URL_USERS = app.dataset.users;
+  var URL_SEND = app.dataset.send;
+  function urlMessages(id) { return app.dataset.messages.replace(/0\/$/, id + '/'); }
+
+  var people = [];
+  var current = null;     // { id, name }
+  var lastId = 0;
+  var pollTimer = null;
+
+  function initial(name) { return (name || '?').trim().charAt(0).toUpperCase(); }
+
+  /* ---------- people list ---------- */
+  function renderPeople() {
+    var q = search.value.trim().toLowerCase();
+    var list = people.filter(function (p) { return p.name.toLowerCase().indexOf(q) !== -1; });
+    peopleEl.textContent = '';
+    if (!list.length) {
+      var e = document.createElement('div');
+      e.className = 'empty-list';
+      e.textContent = people.length ? 'No one matches your search.' : 'No other users yet. Invite a friend to register!';
+      peopleEl.appendChild(e);
+      return;
+    }
+    list.forEach(function (p) {
+      var row = document.createElement('div');
+      row.className = 'room' + (current && current.id === p.id ? ' active' : '');
+      row.tabIndex = 0;
+      row.setAttribute('role', 'button');
+
+      var av = document.createElement('div');
+      av.className = 'av a' + (p.id % 4);
+      av.textContent = initial(p.name);
+
+      var meta = document.createElement('div');
+      meta.className = 'meta';
+      var b = document.createElement('b'); b.textContent = p.name;
+      var s = document.createElement('span'); s.textContent = p.preview;
+      meta.appendChild(b); meta.appendChild(s);
+
+      row.appendChild(av); row.appendChild(meta);
+      row.addEventListener('click', function () { openChat(p); });
+      row.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openChat(p); } });
+      peopleEl.appendChild(row);
+    });
+  }
+
+  function loadPeople() {
+    return fetch(URL_USERS, { credentials: 'same-origin' })
+      .then(function (r) { if (r.status === 401) { location.href = '/'; return null; } return r.json(); })
+      .then(function (d) { if (d && d.ok) { people = d.users; renderPeople(); } })
+      .catch(function () {});
+  }
+
+  /* ---------- conversation ---------- */
+  function bubble(m) {
+    var b = document.createElement('div');
+    b.className = 'bubble ' + (m.mine ? 'me' : 'them');
+    b.dataset.id = m.id;
+    var p = document.createElement('span'); p.textContent = m.content;   // textContent = XSS safe
+    var t = document.createElement('time'); t.textContent = m.time;
+    b.appendChild(p); b.appendChild(t);
+    return b;
+  }
+  function addMessages(list) {
+    if (!list.length) return;
+    var nearBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 120;
+    list.forEach(function (m) {
+      if (feed.querySelector('[data-id="' + m.id + '"]')) return;
+      feed.appendChild(bubble(m));
+      if (m.id > lastId) lastId = m.id;
+    });
+    if (nearBottom) feed.scrollTop = feed.scrollHeight;
+  }
+
+  function fetchMessages(initialLoad) {
+    if (!current) return;
+    var who = current.id;
+    fetch(urlMessages(who) + '?after=' + lastId, { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!current || current.id !== who || !d.ok) return;   // user switched chat meanwhile
+        if (initialLoad) {
+          feed.textContent = '';
+          if (!d.messages.length) {
+            var e = document.createElement('div');
+            e.className = 'placeholder';
+            e.innerHTML = '<h3></h3><p>No messages yet. Send the first one!</p>';
+            e.querySelector('h3').textContent = 'Chat with ' + current.name;
+            feed.appendChild(e);
+          }
+        }
+        if (d.messages.length) {
+          var ph = feed.querySelector('.placeholder'); if (ph) ph.remove();
+          addMessages(d.messages);
+          if (initialLoad) feed.scrollTop = feed.scrollHeight;
+        }
+      })
+      .catch(function () {});
+  }
+
+  function openChat(p) {
+    current = p; lastId = 0;
+    app.classList.add('open');                       // mobile: show right panel
+    paneHead.hidden = false;
+    document.getElementById('headName').textContent = p.name;
+    var av = document.getElementById('headAv');
+    av.className = 'av a' + (p.id % 4); av.textContent = initial(p.name);
+    input.disabled = false; sendBtn.disabled = false;
+    input.placeholder = 'Message ' + p.name + '...';
+    feed.textContent = '';
+    renderPeople();
+    fetchMessages(true);
+    clearInterval(pollTimer);
+    pollTimer = setInterval(function () { fetchMessages(false); }, 3000);   // swap for WebSocket later
+    input.focus();
+  }
+
+  document.getElementById('back').addEventListener('click', function () { app.classList.remove('open'); });
+  search.addEventListener('input', renderPeople);
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var text = input.value.trim();
+    if (!text || !current) return;
+    sendBtn.disabled = true;
+    fetch(URL_SEND, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+      body: JSON.stringify({ to: current.id, content: text })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.ok) {
+          input.value = '';
+          var ph = feed.querySelector('.placeholder'); if (ph) ph.remove();
+          addMessages([d.message]);
+          feed.scrollTop = feed.scrollHeight;
+          loadPeople();
+        } else {
+          alert(d.message || 'Could not send the message.');
+        }
+      })
+      .catch(function () { alert('Unable to connect to the server.'); })
+      .then(function () { sendBtn.disabled = false; input.focus(); });
+  });
+
+  loadPeople();
+  setInterval(loadPeople, 10000);
+})();
+</script>
+{% endblock %}
