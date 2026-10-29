@@ -1,308 +1,218 @@
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MySite</title>
+{% extends 'Chat/base.html' %}
+
+{% block title %}SafeTalk — Chat{% endblock %}
+
+{% block extra_css %}
 <style>
-  :root {
-    --primary: #6c5ce7;
-    --primary-dark: #5443d6;
-    --accent: #ffb400;
-    --text: #1f2340;
-    --muted: #7b7f9e;
-    --danger: #e5484d;
-    --success: #12a66a;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Segoe UI', system-ui, Arial, sans-serif;
-    min-height: 100vh;
-    color: #fff;
-    background: radial-gradient(circle at 20% 20%, #4b3fd1 0%, transparent 45%),
-                radial-gradient(circle at 80% 70%, #00a8e8 0%, transparent 40%),
-                #1b1f4b;
-    background-attachment: fixed;
-  }
-  header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 18px 40px;
-    background: rgba(255,255,255,0.06);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-  }
-  .logo { font-size: 24px; font-weight: 700; letter-spacing: 1px; }
-  .nav-buttons button {
-    margin-left: 10px; padding: 10px 22px; border-radius: 25px;
-    font-size: 15px; cursor: pointer; transition: .25s; border: 2px solid transparent;
-  }
-  .btn-login { background: transparent; color: #fff; border-color: #fff !important; }
-  .btn-login:hover { background: #fff; color: #1b1f4b; }
-  .btn-register { background: var(--accent); color: #222; font-weight: 600; }
-  .btn-register:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(255,180,0,.4); }
-  .hero { text-align: center; padding: 130px 20px; }
-  .hero h1 { font-size: 50px; margin-bottom: 16px; }
-  .hero p { font-size: 18px; opacity: .85; }
+  /* ===== Hero ===== */
+  .hero { max-width: 1180px; margin: 0 auto; padding: 70px 24px 40px; display: grid; grid-template-columns: 1.05fr 1fr; gap: 50px; align-items: center; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; background: var(--glass); border: 1px solid var(--line); font-size: 13px; color: var(--muted); margin-bottom: 20px; backdrop-filter: blur(8px); }
+  .pill b { width: 8px; height: 8px; border-radius: 50%; background: var(--c-teal); box-shadow: 0 0 0 0 rgba(79,209,197,.7); animation: pulse 2s infinite; }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 10px rgba(79,209,197,0); } 100% { box-shadow: 0 0 0 0 rgba(79,209,197,0); } }
+  .hero h1 { font-size: clamp(36px, 5.2vw, 58px); line-height: 1.1; margin-bottom: 18px; font-weight: 800; }
+  .grad-text { background: var(--grad); background-size: 220% 220%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shift 7s ease infinite; }
+  .hero p.lead { font-size: 17.5px; color: var(--muted); line-height: 1.7; max-width: 480px; }
+  .cta { display: flex; gap: 12px; margin-top: 30px; flex-wrap: wrap; }
+  .cta .btn { padding: 14px 28px; font-size: 15.5px; }
+  .rise { opacity: 0; transform: translateY(24px); animation: rise .9s var(--ease) forwards; }
+  .rise.d1 { animation-delay: .1s; } .rise.d2 { animation-delay: .25s; } .rise.d3 { animation-delay: .4s; } .rise.d4 { animation-delay: .55s; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
 
-  /* ===== Modal ===== */
-  .overlay {
-    position: fixed; inset: 0; z-index: 100;
-    display: flex; justify-content: center; align-items: center; padding: 16px;
-    background: rgba(10,12,40,.65);
-    backdrop-filter: blur(6px);
-    opacity: 0; visibility: hidden; transition: opacity .25s, visibility .25s;
+  /* ===== Chat window ===== */
+  .chat {
+    display: grid; grid-template-columns: 220px 1fr; height: 520px; overflow: hidden;
+    border-radius: 26px; background: rgba(20,22,60,.55); border: 1px solid var(--line);
+    backdrop-filter: blur(18px) saturate(1.3);
+    box-shadow: 0 40px 90px rgba(0,0,0,.45), 0 0 80px rgba(160,108,242,.18);
+    animation: bob 7s ease-in-out infinite;
   }
-  .overlay.active { opacity: 1; visibility: visible; }
-  /* Login = purple/cyan theme, Register = pink/orange theme */
-  #loginModal    { --c1: #7f5af0; --c2: #00c2ff; --glow: 127,90,240; --bg1: #2b1d6e; --bg2: #123a78; }
-  #registerModal { --c1: #ff4d8d; --c2: #ff9f1c; --glow: 255,77,141; --bg1: #6b1d52; --bg2: #7a3410; }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+  .side { border-right: 1px solid var(--line); padding: 16px 12px; display: flex; flex-direction: column; gap: 6px; background: rgba(255,255,255,.03); }
+  .side h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); padding: 4px 8px 8px; }
+  .room { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 14px; cursor: pointer; transition: .25s var(--ease); border: 1px solid transparent; }
+  .room:hover { background: var(--glass-2); transform: translateX(3px); }
+  .room.active { background: linear-gradient(120deg, rgba(109,107,245,.35), rgba(242,138,196,.25)); border-color: rgba(255,255,255,.18); }
+  .av { position: relative; flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; color: #1a1640; }
+  .av.a1 { background: linear-gradient(135deg, #a8b4ff, #e0a8ff); }
+  .av.a2 { background: linear-gradient(135deg, #ffd0a8, #ffa8c8); }
+  .av.a3 { background: linear-gradient(135deg, #a8f0e0, #a8d4ff); }
+  .av.a4 { background: linear-gradient(135deg, #fff0a8, #ffc8a8); }
+  .av .on { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; background: #4ade80; border: 2px solid #1c1e4f; }
+  .room .meta { min-width: 0; }
+  .room .meta b { display: block; font-size: 14px; }
+  .room .meta span { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  .modal {
-    position: relative; width: 100%; max-width: 410px;
-    background:
-      radial-gradient(circle at 0% 0%, rgba(var(--glow),.45) 0%, transparent 55%),
-      radial-gradient(circle at 100% 100%, var(--c2) 0%, transparent 60%),
-      linear-gradient(145deg, var(--bg1), var(--bg2));
-    color: #fff;
-    border: 1px solid rgba(255,255,255,.18);
-    border-radius: 22px; padding: 38px 32px 30px;
-    box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 60px rgba(var(--glow),.35);
-    transform: translateY(30px) scale(.95); transition: transform .3s cubic-bezier(.2,.9,.3,1.2);
-    overflow: hidden;
-  }
-  .modal::before {
-    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 6px;
-    background: linear-gradient(90deg, var(--c1), var(--c2), var(--accent));
-  }
-  .overlay.active .modal { transform: none; }
-  .close {
-    position: absolute; top: 14px; right: 14px; width: 34px; height: 34px;
-    border: none; border-radius: 50%; background: rgba(255,255,255,.16); color: #fff;
-    font-size: 20px; cursor: pointer; transition: .2s;
-  }
-  .close:hover { background: rgba(255,255,255,.3); transform: rotate(90deg); }
-  .modal-icon {
-    width: 60px; height: 60px; margin: 0 auto 14px; border-radius: 18px;
-    display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(135deg, var(--c1), var(--c2)); color: #fff;
-    box-shadow: 0 10px 28px rgba(var(--glow),.6), inset 0 0 0 1px rgba(255,255,255,.3);
-  }
-  .modal h2 { text-align: center; font-size: 26px; text-shadow: 0 2px 12px rgba(0,0,0,.3); }
-  .modal .sub { text-align: center; color: rgba(255,255,255,.8); font-size: 14px; margin: 6px 0 22px; }
+  .pane { display: flex; flex-direction: column; min-width: 0; }
+  .pane-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .pane-head .t b { display: block; font-size: 15px; }
+  .pane-head .t span { font-size: 12px; color: var(--c-teal); }
+  .feed { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth; }
+  .feed::-webkit-scrollbar { width: 6px; }
+  .feed::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 6px; }
+  .bubble { max-width: 76%; padding: 10px 15px; border-radius: 18px; font-size: 14.5px; line-height: 1.5; opacity: 0; transform: translateY(14px) scale(.96); animation: pop .5s var(--ease) forwards; word-wrap: break-word; }
+  .bubble.them { align-self: flex-start; background: var(--glass-2); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+  .bubble.me { align-self: flex-end; color: #1a1640; font-weight: 500; background: linear-gradient(120deg, #b9b6ff, #f4b6da 60%, #ffd0b0); border-bottom-right-radius: 6px; box-shadow: 0 8px 22px rgba(160,108,242,.28); }
+  .bubble time { display: block; font-size: 10.5px; opacity: .6; margin-top: 3px; text-align: right; }
+  @keyframes pop { to { opacity: 1; transform: none; } }
+  .typing { align-self: flex-start; display: flex; gap: 5px; padding: 13px 16px; border-radius: 18px; border-bottom-left-radius: 6px; background: var(--glass-2); border: 1px solid var(--line); }
+  .typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: dot 1.2s infinite; }
+  .typing i:nth-child(2) { animation-delay: .15s; } .typing i:nth-child(3) { animation-delay: .3s; }
+  @keyframes dot { 0%,60%,100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-6px); opacity: 1; } }
 
-  .field { position: relative; margin-bottom: 14px; }
-  .field svg.lead {
-    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
-    width: 18px; height: 18px; color: rgba(255,255,255,.7); pointer-events: none; transition: .2s;
-  }
-  .field input {
-    width: 100%; padding: 14px 44px 14px 42px; font-size: 15px; color: #fff;
-    border: 1.5px solid rgba(255,255,255,.22); border-radius: 12px;
-    background: rgba(255,255,255,.12); backdrop-filter: blur(6px); outline: none; transition: .2s;
-  }
-  .field input::placeholder { color: rgba(255,255,255,.65); }
-  .field input:focus { border-color: #fff; background: rgba(255,255,255,.2); box-shadow: 0 0 0 4px rgba(var(--glow),.35); }
-  .field input:focus ~ svg.lead { color: #fff; }
-  .field input:-webkit-autofill {
-    -webkit-text-fill-color: #fff; transition: background-color 9999s ease-in-out 0s;
-  }
-  .toggle-pw {
-    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; cursor: pointer; color: rgba(255,255,255,.7); padding: 6px; display: flex;
-  }
-  .toggle-pw:hover { color: #fff; }
-  .toggle-pw svg { width: 18px; height: 18px; }
+  .composer { display: flex; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--line); }
+  .composer input { flex: 1; padding: 13px 18px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--glass); color: var(--ink); font-size: 14.5px; font-family: inherit; outline: none; transition: .25s; }
+  .composer input::placeholder { color: var(--muted); }
+  .composer input:focus { border-color: var(--c-violet); box-shadow: 0 0 0 4px rgba(160,108,242,.22); background: var(--glass-2); }
+  .send { width: 48px; height: 48px; flex: none; border: none; border-radius: 50%; cursor: pointer; display: grid; place-items: center; color: #1a1640; background: var(--grad); background-size: 200% 200%; animation: shift 6s ease infinite; transition: .25s var(--ease); }
+  .send:hover { transform: scale(1.08) rotate(-8deg); box-shadow: 0 8px 22px rgba(242,138,196,.5); }
+  .send:active { transform: scale(.94); }
+  .send svg { width: 20px; height: 20px; }
 
-  .msg { min-height: 20px; margin-bottom: 10px; font-size: 13.5px; text-align: center; font-weight: 500; }
-  .msg.error { color: #ffd1d1; background: rgba(229,72,77,.35); border-radius: 8px; padding: 6px 10px; }
-  .msg.success { color: #d5ffe9; background: rgba(18,166,106,.4); border-radius: 8px; padding: 6px 10px; }
-  .msg:empty { background: none; padding: 0; }
+  /* ===== Features ===== */
+  .features { max-width: 1180px; margin: 0 auto; padding: 50px 24px 70px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+  .card { padding: 26px; border-radius: var(--radius); background: var(--glass); border: 1px solid var(--line); backdrop-filter: blur(12px); transition: .4s var(--ease); position: relative; overflow: hidden; }
+  .card::before { content: ""; position: absolute; inset: 0; background: var(--g); opacity: 0; transition: opacity .4s; }
+  .card:hover { transform: translateY(-8px); border-color: rgba(255,255,255,.3); box-shadow: 0 24px 50px rgba(0,0,0,.3); }
+  .card:hover::before { opacity: .16; }
+  .card > * { position: relative; }
+  .card .ic { width: 48px; height: 48px; border-radius: 15px; display: grid; place-items: center; margin-bottom: 16px; background: var(--g); color: #1a1640; }
+  .card .ic svg { width: 24px; height: 24px; }
+  .card h3 { font-size: 18px; margin-bottom: 8px; }
+  .card p { font-size: 14.5px; color: var(--muted); line-height: 1.6; }
+  .card:nth-child(1) { --g: linear-gradient(135deg, #a8b4ff, #c9a8ff); }
+  .card:nth-child(2) { --g: linear-gradient(135deg, #ffb6d9, #ffd0a8); }
+  .card:nth-child(3) { --g: linear-gradient(135deg, #a8f0e0, #a8d4ff); }
 
-  .submit {
-    width: 100%; padding: 14px; border: none; border-radius: 12px; cursor: pointer;
-    font-size: 16px; font-weight: 700; color: #1b1f4b;
-    background: linear-gradient(135deg, #fff, #ffe9a8);
-    box-shadow: 0 10px 24px rgba(0,0,0,.3); transition: .2s;
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; padding-top: 40px; }
+    .chat { height: 480px; }
   }
-  .submit:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(0,0,0,.4), 0 0 24px rgba(var(--glow),.6); }
-  .submit:disabled { opacity: .7; cursor: wait; transform: none; }
-
-  .switch { text-align: center; margin-top: 18px; font-size: 14px; color: rgba(255,255,255,.8); }
-  .switch a { color: #fff; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-  .switch a:hover { color: var(--accent); }
-
-  .shake { animation: shake .4s; }
-  @keyframes shake { 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)} }
-
   @media (max-width: 520px) {
-    header { padding: 14px 18px; }
-    .hero h1 { font-size: 34px; }
-    .modal { padding: 34px 22px 24px; }
+    .chat { grid-template-columns: 1fr; }
+    .side { display: none; }
   }
 </style>
-</head>
-<body>
+{% endblock %}
 
-<header>
-  <div class="logo">MySite</div>
-  <div class="nav-buttons">
-    <button class="btn-login" onclick="openModal('loginModal')">Log In</button>
-    <button class="btn-register" onclick="openModal('registerModal')">Register</button>
-  </div>
-</header>
-
+{% block content %}
 <section class="hero">
-  <h1 id="heroTitle">Welcome to MySite</h1>
-  <p id="heroSub">Log in or create an account to get started.</p>
+  <div>
+    
+    <h1 class="rise d1">Talk freely, connect <span class="grad-text">seamlessly</span></h1>
+    <p class="lead rise d2">A beautiful, fast and animated chat experience. Create rooms with friends, send messages and keep everything in one place.</p>
+    <div class="cta rise d3">
+      {% if user.is_authenticated %}
+        <button class="btn btn-register" onclick="document.getElementById('msgInput').focus()">Start chatting</button>
+      {% else %}
+        <button class="btn btn-register" onclick="openModal('registerModal')">Get started</button>
+        <button class="btn btn-login" onclick="openModal('loginModal')">Log In</button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="rise d4">
+    <div class="chat" id="chatApp" data-auth="{% if user.is_authenticated %}1{% else %}0{% endif %}">
+      <aside class="side">
+        <h4>Rooms</h4>
+        <div class="room active"><div class="av a1">G<span class="on"></span></div><div class="meta"><b>General</b><span>Welcome everyone!</span></div></div>
+        <div class="room"><div class="av a2">D<span class="on"></span></div><div class="meta"><b>Design</b><span>New colours ready</span></div></div>
+        <div class="room"><div class="av a3">T</div><div class="meta"><b>Tech talk</b><span>Django channels?</span></div></div>
+        <div class="room"><div class="av a4">F<span class="on"></span></div><div class="meta"><b>Friends</b><span>Coffee later?</span></div></div>
+      </aside>
+
+      <section class="pane">
+        <div class="pane-head">
+          <div class="av a1">G<span class="on"></span></div>
+          <div class="t"><b>General</b><span>&#9679; 24 online</span></div>
+        </div>
+        <div class="feed" id="feed"></div>
+        <form class="composer" id="composer" autocomplete="off">
+          <input id="msgInput" type="text" placeholder="Type a message..." maxlength="500">
+          <button class="send" type="submit" aria-label="Send">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>
+          </button>
+        </form>
+      </section>
+    </div>
+  </div>
 </section>
 
-<!-- Login -->
-<div class="overlay" id="loginModal">
-  <div class="modal">
-    <button class="close" onclick="closeModal('loginModal')" aria-label="Close">&times;</button>
-    <div class="modal-icon">
-      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-    </div>
-    <h2>Welcome Back</h2>
-    <p class="sub">Apnar account-e log in korun</p>
-    <form id="loginForm" data-url="{% url 'user_login' %}" novalidate>
-      {% csrf_token %}
-      <div class="field">
-        <input type="email" name="email" placeholder="Email address" autocomplete="email" required>
-        <svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
-      </div>
-      <div class="field">
-        <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
-        <svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        <button type="button" class="toggle-pw" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
-      </div>
-      <div class="msg"></div>
-      <button class="submit" type="submit">Log In</button>
-    </form>
-    <p class="switch">Account nai? <a onclick="swap('loginModal','registerModal')">Register korun</a></p>
+<section class="features">
+  <div class="card rise d2">
+    <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></div>
+    <h3>Lightning fast</h3><p>Messages reach everyone the moment you send them, with no delay.</p>
   </div>
-</div>
-
-<!-- Register -->
-<div class="overlay" id="registerModal">
-  <div class="modal">
-    <button class="close" onclick="closeModal('registerModal')" aria-label="Close">&times;</button>
-    <div class="modal-icon">
-      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
-    </div>
-    <h2>Create Account</h2>
-    <p class="sub">Kichukkhon-e notun account khulun</p>
-    <form id="registerForm" data-url="{% url 'user_register' %}" novalidate>
-      {% csrf_token %}
-      <div class="field">
-        <input type="text" name="name" placeholder="Full name" autocomplete="name" required>
-        <svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      </div>
-      <div class="field">
-        <input type="email" name="email" placeholder="Email address" autocomplete="email" required>
-        <svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
-      </div>
-      <div class="field">
-        <input type="password" name="password" placeholder="Password (min 8 character)" autocomplete="new-password" required>
-        <svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        <button type="button" class="toggle-pw" aria-label="Show password"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
-      </div>
-      <div class="field">
-        <input type="password" name="confirm" placeholder="Confirm password" autocomplete="new-password" required>
-        <svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-      </div>
-      <div class="msg"></div>
-      <button class="submit" type="submit">Create Account</button>
-    </form>
-    <p class="switch">Already account ache? <a onclick="swap('registerModal','loginModal')">Log In korun</a></p>
+  <div class="card rise d3">
+    <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg></div>
+    <h3>Group rooms</h3><p>Chat by topic in separate rooms and invite your friends.</p>
   </div>
-</div>
+  <div class="card rise d4">
+    <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+    <h3>Safe &amp; private</h3><p>Your account and conversations stay protected with secure login.</p>
+  </div>
+</section>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-  function updateCsrfToken(token) {
-    document.querySelectorAll('[name="csrfmiddlewaretoken"]').forEach(input => {
-      input.value = token;
-      input.defaultValue = token;
-    });
-  }
+  (function () {
+    var feed = document.getElementById('feed');
+    var form = document.getElementById('composer');
+    var input = document.getElementById('msgInput');
+    var isAuth = document.getElementById('chatApp').dataset.auth === '1';
 
-  function openModal(id) { document.getElementById(id).classList.add('active'); }
-  function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-  function swap(from, to) { closeModal(from); setTimeout(() => openModal(to), 150); }
-
-  document.querySelectorAll('.overlay').forEach(o =>
-    o.addEventListener('click', e => { if (e.target === o) o.classList.remove('active'); }));
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') document.querySelectorAll('.overlay').forEach(o => o.classList.remove('active'));
-  });
-
-  // Password show/hide
-  document.querySelectorAll('.toggle-pw').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const input = btn.parentElement.querySelector('input');
-      input.type = input.type === 'password' ? 'text' : 'password';
-    });
-  });
-
-  async function submitAuthForm(form, e) {
-    e.preventDefault();
-    const msg = form.querySelector('.msg');
-    const btn = form.querySelector('.submit');
-    const modal = form.closest('.modal');
-    const original = btn.textContent;
-    msg.className = 'msg'; msg.textContent = '';
-
-    if (![...form.elements].filter(el => el.name).every(el => el.value.trim())) {
-      msg.className = 'msg error'; msg.textContent = 'Shob field puron korun.';
-      modal.classList.remove('shake'); void modal.offsetWidth; modal.classList.add('shake');
-      return;
+    function now() {
+      var d = new Date();
+      return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+    }
+    function add(text, who) {
+      var b = document.createElement('div');
+      b.className = 'bubble ' + who;
+      var p = document.createElement('span');
+      p.textContent = text;           // textContent keeps user input safe from XSS
+      var t = document.createElement('time');
+      t.textContent = now();
+      b.appendChild(p); b.appendChild(t);
+      feed.appendChild(b);
+      feed.scrollTop = feed.scrollHeight;
+    }
+    function typing(ms, cb) {
+      var el = document.createElement('div');
+      el.className = 'typing';
+      el.innerHTML = '<i></i><i></i><i></i>';
+      feed.appendChild(el); feed.scrollTop = feed.scrollHeight;
+      setTimeout(function () { el.remove(); cb(); }, ms);
     }
 
-    btn.disabled = true; btn.textContent = 'Please wait...';
-    try {
-      const payload = Object.fromEntries(new FormData(form));
-      delete payload.csrfmiddlewaretoken;
-      const res = await fetch(form.dataset.url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': form.querySelector('[name="csrfmiddlewaretoken"]').value
-        },
-        credentials: 'same-origin',
-        body: JSON.stringify(payload)
+    // Demo conversation (replace with WebSocket later)
+    var intro = [
+      ['Hey! Welcome to SafeTalk', 'them'],
+      ['How do you like the new chat UI?', 'them']
+    ];
+    var i = 0;
+    (function play() {
+      if (i >= intro.length) return;
+      typing(900, function () { add(intro[i][0], intro[i][1]); i++; setTimeout(play, 500); });
+    })();
+
+    var replies = ['Great idea!', 'Yes, I was just thinking that', 'Totally agree', "Let's get started", 'Sounds fun!'];
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var text = input.value.trim();
+      if (!text) return;
+      if (!isAuth) { openModal('loginModal'); return; }
+      add(text, 'me');
+      input.value = '';
+      typing(1100, function () { add(replies[Math.floor(Math.random() * replies.length)], 'them'); });
+    });
+
+    // Switch active room (visual only)
+    document.querySelectorAll('.room').forEach(function (r) {
+      r.addEventListener('click', function () {
+        document.querySelectorAll('.room').forEach(function (x) { x.classList.remove('active'); });
+        r.classList.add('active');
       });
-      const data = await res.json();
-      if (data.csrf_token) updateCsrfToken(data.csrf_token);
-      if (res.ok && data.ok) {
-        msg.className = 'msg success'; msg.textContent = data.message;
-        if (form.id === 'registerForm') {
-          setTimeout(() => { form.reset(); msg.textContent = ''; swap('registerModal', 'loginModal'); }, 1200);
-        } else {
-          document.getElementById('heroTitle').textContent = data.message;
-          document.getElementById('heroSub').textContent = 'Apni successfully log in korechhen.';
-          setTimeout(() => { form.reset(); closeModal('loginModal'); }, 1000);
-        }
-      } else {
-        msg.className = 'msg error'; msg.textContent = data.message || 'Kichu ekta vul hoyeche.';
-        modal.classList.remove('shake'); void modal.offsetWidth; modal.classList.add('shake');
-      }
-    } catch (err) {
-      msg.className = 'msg error'; msg.textContent = 'Server-e connect kora jachhe na.';
-    } finally {
-      btn.disabled = false; btn.textContent = original;
-    }
-  }
-
-  function userLogin(event) {
-    return submitAuthForm(document.getElementById('loginForm'), event);
-  }
-
-  function userRegister(event) {
-    return submitAuthForm(document.getElementById('registerForm'), event);
-  }
-
-  document.getElementById('loginForm').addEventListener('submit', userLogin);
-  document.getElementById('registerForm').addEventListener('submit', userRegister);
+    });
+  })();
 </script>
-</body>
-</html>
+{% endblock %}

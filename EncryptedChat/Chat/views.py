@@ -156,3 +156,10 @@ def user_register(request):
         'csrf_token': get_token(request),
         'user_id': user.pk,
     }, status=201)
+
+
+def chat_room(request):
+    if not request.user.is_authenticated:
+        return render(request, 'Chat/home.html', {'error': 'You must be logged in to access the chat room.'})
+    
+    return render(request, 'Chat/chat_room.html', {'user': request.user})
