@@ -32,6 +32,8 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost').split(',')
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
+    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -70,7 +72,14 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'EncryptedChat.wsgi.application'
+ASGI_APPLICATION = 'EncryptedChat.asgi.application'
 
+# This is for the Channels layer configuration. It uses an in-memory channel layer for development purposes. In production, you would typically use a more robust backend like Redis.
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases

@@ -226,7 +226,7 @@ def user_register(request):
 def chat_room(request):
     if not request.user.is_authenticated:
         return redirect('view_details')
-    return render(request, 'Chat/chat_room.html')
+    return render(request, 'Chat/chat_room.html', {'chat_user_id': request.user.pk})
 
 
 @require_GET

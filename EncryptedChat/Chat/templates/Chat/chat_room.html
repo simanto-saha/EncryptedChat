@@ -50,6 +50,11 @@
   .bubble { max-width: 72%; padding: 10px 15px; border-radius: 18px; font-size: 14.5px; line-height: 1.5; word-wrap: break-word; overflow-wrap: anywhere; animation: pop .35s var(--ease); white-space: pre-wrap; }
   .bubble.them { align-self: flex-start; background: var(--glass-2); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
   .bubble.me { align-self: flex-end; color: #1a1640; font-weight: 500; background: linear-gradient(120deg, #b9b6ff, #f4b6da 60%, #ffd0b0); border-bottom-right-radius: 6px; box-shadow: 0 8px 22px rgba(160,108,242,.28); }
+  .bubble.typing { min-width: 52px; letter-spacing: 5px; }
+  .bubble.typing .dot { display: inline-block; font-size: 20px; line-height: 8px; animation: typingBounce .9s ease-in-out infinite; }
+  .bubble.typing .dot:nth-child(2) { animation-delay: .15s; }
+  .bubble.typing .dot:nth-child(3) { animation-delay: .3s; }
+  @keyframes typingBounce { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-5px); opacity: 1; } }
   .bubble time { display: block; font-size: 10.5px; opacity: .6; margin-top: 3px; text-align: right; }
   @keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
 
@@ -85,7 +90,7 @@
   <div class="chat" id="chatApp"
        data-users="{% url 'api_users' %}"
        data-messages="{% url 'api_messages' 0 %}"
-       data-send="{% url 'api_send' %}">
+       data-current-user="{{ chat_user_id }}">
 
     <!-- LEFT: people list -->
     <aside class="side">
@@ -137,16 +142,19 @@
   var sendBtn = document.getElementById('sendBtn');
   var search = document.getElementById('search');
   var paneHead = document.getElementById('paneHead');
-  var csrf = form.querySelector('[name="csrfmiddlewaretoken"]').value;
 
   var URL_USERS = app.dataset.users;
-  var URL_SEND = app.dataset.send;
   function urlMessages(id) { return app.dataset.messages.replace(/0\/$/, id + '/'); }
 
   var people = [];
   var current = null;     // { id, name }
   var lastId = 0;
   var pollTimer = null;
+  var chatSocket = null;
+  var reconnectTimer = null;
+  var typingTimer = null;
+  var liveTypingBubble = null;
+  var currentUserId = Number(app.dataset.currentUser);
 
   function initial(name) { return (name || '?').trim().charAt(0).toUpperCase(); }
 
@@ -241,6 +249,10 @@
 
   function openChat(p) {
     current = p; lastId = 0;
+    if (liveTypingBubble) {
+      liveTypingBubble.remove();
+      liveTypingBubble = null;
+    }
     app.classList.add('open');                       // mobile: show right panel
     paneHead.hidden = false;
     document.getElementById('headName').textContent = p.name;
@@ -252,41 +264,124 @@
     renderPeople();
     fetchMessages(true);
     clearInterval(pollTimer);
-    pollTimer = setInterval(function () { fetchMessages(false); }, 3000);   // swap for WebSocket later
+    joinChatSocket(p.id);
     input.focus();
+  }
+
+  function joinChatSocket(userId) {
+    if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) return;
+    chatSocket.send(JSON.stringify({ action: 'join', user_id: userId }));
+  }
+
+  function connectChatSocket() {
+    var protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var socket = new WebSocket(
+      protocol + '//' + window.location.host + '/ws/chat/0/'
+    );
+    chatSocket = socket;
+
+    socket.onopen = function () {
+      if (current) joinChatSocket(current.id);
+    };
+
+    socket.onmessage = function (event) {
+      var data = JSON.parse(event.data);
+      if (data.typing) {
+        var typing = data.typing;
+        if (
+          !current
+          || Number(typing.sender_id) !== Number(current.id)
+          || Number(typing.recipient_id) !== Number(currentUserId)
+        ) return;
+
+        if (typing.is_typing) {
+          if (!liveTypingBubble) {
+            liveTypingBubble = document.createElement('div');
+            liveTypingBubble.className = 'bubble them typing';
+            liveTypingBubble.dataset.liveTyping = 'true';
+            for (var dotIndex = 0; dotIndex < 3; dotIndex++) {
+              var dot = document.createElement('span');
+              dot.className = 'dot';
+              dot.textContent = '.';
+              liveTypingBubble.appendChild(dot);
+            }
+            feed.appendChild(liveTypingBubble);
+          }
+        } else if (liveTypingBubble) {
+          liveTypingBubble.remove();
+          liveTypingBubble = null;
+        }
+        feed.scrollTop = feed.scrollHeight;
+        return;
+      }
+
+      var message = data.message;
+      if (!message || !current || currentUserId === null) return;
+      if (
+        Number(message.sender_id) !== Number(current.id)
+        && Number(message.recipient_id) !== Number(current.id)
+      ) return;
+      message.mine = Number(message.sender_id) === currentUserId;
+      if (liveTypingBubble) {
+        liveTypingBubble.remove();
+        liveTypingBubble = null;
+      }
+      addMessages([message]);
+      feed.scrollTop = feed.scrollHeight;
+      loadPeople();
+    };
+
+    socket.onclose = function () {
+      if (chatSocket === socket) chatSocket = null;
+      if (!reconnectTimer) {
+        reconnectTimer = window.setTimeout(function () {
+          reconnectTimer = null;
+          connectChatSocket();
+        }, 1500);
+      }
+    };
   }
 
   document.getElementById('back').addEventListener('click', function () { app.classList.remove('open'); });
   search.addEventListener('input', renderPeople);
+
+  function sendTyping(isTyping) {
+    if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN || !current) return;
+    chatSocket.send(JSON.stringify({
+      action: 'typing',
+      to: current.id,
+      is_typing: isTyping
+    }));
+  }
+
+  input.addEventListener('input', function () {
+    sendTyping(true);
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(function () { sendTyping(false); }, 1200);
+  });
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
     var text = input.value.trim();
     if (!text || !current) return;
     sendBtn.disabled = true;
-    fetch(URL_SEND, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
-      body: JSON.stringify({ to: current.id, content: text })
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        if (d.ok) {
-          input.value = '';
-          var ph = feed.querySelector('.placeholder'); if (ph) ph.remove();
-          addMessages([d.message]);
-          feed.scrollTop = feed.scrollHeight;
-          loadPeople();
-        } else {
-          alert(d.message || 'Could not send the message.');
-        }
-      })
-      .catch(function () { alert('Unable to connect to the server.'); })
-      .then(function () { sendBtn.disabled = false; input.focus(); });
+    if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
+      alert('Chat connection is not ready. Please wait a moment.');
+      sendBtn.disabled = false;
+      return;
+    }
+
+    chatSocket.send(JSON.stringify({ message: text, to: current.id }));
+    sendTyping(false);
+    input.value = '';
+    var ph = feed.querySelector('.placeholder');
+    if (ph) ph.remove();
+    sendBtn.disabled = false;
+    input.focus();
   });
 
   loadPeople();
+  connectChatSocket();
   setInterval(loadPeople, 10000);
 })();
 </script>
